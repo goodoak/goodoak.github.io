@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="Enjoy Code Life">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="GoodOak">
+    
+
+    <!-- Title -->
+    
+    <title>Xposed实现过程 | Code | Oak&#39;s hexo</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+    <!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>Xposed实现过程</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <h1 id="1-介绍"><a href="#1-介绍" class="headerlink" title="1.介绍"></a>1.介绍</h1><h2 id="1-1概述"><a href="#1-1概述" class="headerlink" title="1.1概述"></a>1.1概述</h2><p>Xposed是一个用于实现Android动态劫持项目的平台。通过控制替换/system/bin/app_process文件来控制Zygote进程。由于Android中的大部分程序（包括一些服务进程）都是由Zygote创建，app_process在启动时加载XposedBridge.jar来完成进程的劫持，也就可以达到劫持手机系统的目的。</p>
+<p>Xposed的资源地址为：</p>
+<p><a href="https://github.com/rovo89" target="_blank" rel="external">Xposed Github</a></p>
+<p>其中主要包含三个项目：</p>
+<ul>
+<li><p>XposedBridge: 该工程编译后是一个jar包，负责劫持框架的java层的实现，并负责与native层进行交互。其他劫持模块的开发和操作都是基于这个jar包。</p>
+</li>
+<li><p>Xposed: Xposed的c++部分，主要用于替换/system/bin/app_process, 其次还为XposedBridge提供jni的支持。</p>
+</li>
+<li><p>XposedInstaller: Xposed的安装程序，负责Xposed的环境设置以及提供xposed模块的管理框架。</p>
+</li>
+</ul>
+<h2 id="1-2运行机制"><a href="#1-2运行机制" class="headerlink" title="1.2运行机制"></a>1.2运行机制</h2><h3 id="1-2-1-Zygote"><a href="#1-2-1-Zygote" class="headerlink" title="1.2.1 Zygote"></a>1.2.1 Zygote</h3><p>在Android系统中，应用的进程都是由Zygote来孵化，而Zygote由init进程启动。在系统启动时Zygote进程就创建了一个Dalvik虚拟机的实例。当Zygote孵化新的应用进程时，这个Dalvik虚拟机的实例也会被复制到新的进程中。每个App进程都拥有一个独立的虚拟机实例。</p>
+<p>Zygote在启动时不仅会创建虚拟机，而且还会预加载一些基础的java运行库，以及注册一些必要的jni的方法。这是正是加载XposedBridge的时机，XposedBreidge中有一个专门用于hook的native方法，该方法通过java的反射机制，覆盖掉了原先也就是我们想要hook的java方法。</p>
+<h3 id="1-2-2-Hook-Replace"><a href="#1-2-2-Hook-Replace" class="headerlink" title="1.2.2 Hook/Replace"></a>1.2.2 Hook/Replace</h3><p>Xposed的主要工作是进行hook。相较Xposed来说，为了修改app，重打包的话就需要修改smali代码，即便是动态的替换smali代码，也会因为代码的复杂使得工作变得繁杂。Xposed的好处在于省去了重打包和修改smali代码带来的麻烦。<br>Zygote加载XposedBridge之后，将会把所有需要hook的方法都替换为名为hookMethodNative的jni函数，该函数处理相应的参数（被hook的函数名称，hook的方法）后，通过反射调用java方法handleHookedMethod，并由handleHookedMethod完成用户指定的hook逻辑。</p>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/Android/">Android</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2016 年 09 月 27 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+
+</body>
+
+</html>

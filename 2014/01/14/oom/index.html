@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="Enjoy Code Life">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="GoodOak">
+    
+
+    <!-- Title -->
+    
+    <title>当Linux内存耗尽时 | Code | Oak&#39;s hexo</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+    <!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>当Linux内存耗尽时</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>当内存不足时会发生什么，结果很简单，linux的内存用完了，无法申请缓冲区，内核会挑选进程将其杀死，一般情况下，杀死正在申请内存的程序。频繁的进行磁盘swap操作，经常会出现这类问题，或是并发处理时启动的进程数过多。</p>
+<p>出现内存耗尽的原因很简单，你申请的内存大小，超过了可用的虚拟内存的大小，注意是虚拟内存（内存并不是唯一的，交换分区也可以提供内存）</p>
+<p>探究oom（out of memory）</p>
+<p>首先运行下面的程序，不断申请大量内存：</p>
+<figure class="highlight c"><figcaption><span>c code</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></div><div class="line"></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> MEGABYTE 1024*1024</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span></span></div><div class="line">&#123;</div><div class="line">        <span class="keyword">void</span> *myblock = <span class="literal">NULL</span>;</div><div class="line">        <span class="keyword">int</span> count = <span class="number">0</span>;</div><div class="line"></div><div class="line">        <span class="keyword">while</span> (<span class="number">1</span>)</div><div class="line">        &#123;</div><div class="line">                myblock = (<span class="keyword">void</span> *) <span class="built_in">malloc</span>(MEGABYTE);</div><div class="line">                <span class="keyword">if</span> (!myblock) <span class="keyword">break</span>;</div><div class="line">                <span class="built_in">printf</span>(<span class="string">"Currently allocating %d MB\n"</span>, ++count);</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>上面的程序运行一会就会出现oom，现在运行另外一个程序，不断申请内存，并且将其填充1。</p>
+<figure class="highlight c"><figcaption><span>c code</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></div><div class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></div><div class="line"></div><div class="line"><span class="meta">#<span class="meta-keyword">define</span> MEGABYTE 1024*1024</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span></span></div><div class="line">&#123;</div><div class="line">        <span class="keyword">void</span> *myblock = <span class="literal">NULL</span>;</div><div class="line">        <span class="keyword">int</span> count = <span class="number">0</span>;</div><div class="line"></div><div class="line">        <span class="keyword">while</span>(<span class="number">1</span>)</div><div class="line">        &#123;</div><div class="line">                myblock = (<span class="keyword">void</span> *) <span class="built_in">malloc</span>(MEGABYTE);</div><div class="line">                <span class="keyword">if</span> (!myblock) <span class="keyword">break</span>;</div><div class="line">                <span class="built_in">memset</span>(myblock,<span class="number">1</span>, MEGABYTE);</div><div class="line">                <span class="built_in">printf</span>(<span class="string">"Currently allocating %d MB\n"</span>,++count);</div><div class="line">        &#125;</div><div class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>有发现不同吗，事实上程序1可以比程序2申请更多的内存。两个程序退出的原因都是因为空间不够了，然而程序1的退出时因为malloc的失败，而程序2的退出则是因为内核所谓的oom killer 将其杀死了。</p>
+<p>程序2退出的时候：</p>
+<p>Currently  allocatinn  1589  MB</p>
+<p>程序1退出的时候：</p>
+<p>Currently allocating  274520 MB(64位系统）</p>
+<p>为什么程序1相较程序2可以多分配如此多的内存，这是因为linux采用了延迟的页面分配。也就是说内存只有在真正用的时候才进行分配，这种技术被称为optimistic memory allocation。</p>
+<p>查看／proc／pid／status文件就可以知道这个情况。（其中vmdata是所占用的虚拟内存）</p>
+<p>首先是程序1:</p>
+<img src="https://res.cloudinary.com/dcn1avvzr/image/upload/v1475039999/oom1_mxzokd.png" title="进程status">
+<p>然后是程序2:</p>
+<img src="https://res.cloudinary.com/dcn1avvzr/image/upload/v1475039999/oom2_dwba0g.png" title="进程status">
+<p>当我们请求一个内存区时，c库会判断当前预分配的内存块是否足够大，如果不够，程序会通过扩展堆空间的方式来获取内存。</p>
+<p>查看文件／proc/pid／maps可以看到堆里的内存块。</p>
+<img src="https://res.cloudinary.com/dcn1avvzr/image/upload/v1475040000/oom3_z4fvym.jpg">
+<p>在内存用尽的时候oom killer会依据策略挑选需要杀死的进程进行kill操作，策略是可以配置的。每个进程的oom_score是动态变化的，越大越可能被杀死。</p>
+<p>通过查看/proc/pid/oom_score 可以知晓该进程的值。一般来说占用内存越多的值越高，运行时间越早的值越小。</p>
+<img src="https://res.cloudinary.com/dcn1avvzr/image/upload/v1475039999/oom4_ulydgt.jpg">
+<p>同时在系统里面有些相对重要的进程可能会得到较高的值，这个时候可以使用/proc/pid/oom_adj文件。把里面的数值设置为整数，这个进程就越有可能被杀掉，相反设置为负数，就越有机会存活。当这个值为-17，oom-killer就会完全忽略这个进程。</p>
+<p>当然这种方式不容易实现和管理，有其他编写代码管理oom-killer的方法。</p>
+<p>如果系统有日志的话，killer的日志会保存到</p>
+<p><code>grep -i kill /var/log/messages*</code></p>
+<p>依据这个日志，可以调整策略，保证重要进程的正常运行，例如数据库和web服务。</p>
+<p>oom-killer的代码位于mm/oom_kill.c</p>
+<p>其调用的顺序是malloc -&gt; _alloc_pages -&gt; out_of_memory() -&gt; select_bad_process() -&gt; badness()</p>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                    </div>
+                    <div class="post-date">
+                        2014 年 01 月 14 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+
+</body>
+
+</html>
