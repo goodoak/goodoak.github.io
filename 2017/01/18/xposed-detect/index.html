@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="Enjoy Code Life">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="GoodOak">
+    
+
+    <!-- Title -->
+    
+    <title>Xposed Hook行为的检测 | Code | Oak&#39;s hexo</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+    <!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>Xposed Hook行为的检测</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <h3 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h3><p>Xposed是Android上的一个Hook框架，通过替换app_process来使得所有App进程在启动时就已经加载了Hook模块。从而达到在不侵入App程序的情况下，修改App的程序行为。这对App的完整性是有破坏的，如某些App需要统计其安装信息（如安装的设备数），通过Xposed就可以修改设备参数，进行设备伪装，从而干扰App的统计功能。</p>
+<p>阅读Xposed的代码可以知道，Xposed框架hook程序的java函数的实现是将需要hook的java函数设置为函数，再申请一个内存空间用于保存该java函数的原来的信息，并把该空间的地址保存到该函数的java指令指针里。其核心代码如下：</p>
+<figure class="highlight c"><figcaption><span>c code</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="built_in">memcpy</span>(hookInfo, method, <span class="keyword">sizeof</span>(hookInfo-&gt;originalMethodStruct));</div><div class="line"><span class="comment">// Replace method with our own code</span></div><div class="line">SET_METHOD_FLAG(method, ACC_NATIVE);</div><div class="line">method-&gt;nativeFunc = &amp;hookedMethodCallback;</div><div class="line">method-&gt;insns = (<span class="keyword">const</span> u2*) hookInfo;</div><div class="line">method-&gt;registersSize = method-&gt;insSize;</div><div class="line">method-&gt;outsSize = <span class="number">0</span>;   </div></pre></td></tr></table></figure>
+<p>从以上代码可以看出xposed的hook主要是把method的flag置为NATIVE标志，并且对nativeFunc指针进行了赋值（其用于实现函数劫持）。关键的地方还在与其把method的原有信息拷贝之后，将保存地址赋值给了insns。</p>
+<h3 id="检测方法"><a href="#检测方法" class="headerlink" title="检测方法"></a>检测方法</h3><h4 id="1-简易的检测方法"><a href="#1-简易的检测方法" class="headerlink" title="1. 简易的检测方法"></a>1. 简易的检测方法</h4><p>了解xposed的实现过程之后，我们知道xposed框架要Hook一个函数，最先改变的就是这个函数的属性，由java函数变为了native函数。所以我们在判断一个函数是否被xposed框架hook的第一步就是判断其是否本应是一个java函数的函数被置为了native函数。<br>例如判断TelephonyManager.getDeviceId()是否被Hook，该函数常常被hook，来达到欺骗App的目的。</p>
+<figure class="highlight java"><figcaption><span>java code</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">TelephonyManager tm = getSystemService(”phone”);</div><div class="line"></div><div class="line">Class clazz = tm.getClass();</div><div class="line">Method m = clazz.getMethod(“getDeviceId”);</div><div class="line"></div><div class="line"><span class="keyword">if</span> (Modifier.isNative(m.getModifiers())) &#123;</div><div class="line">  Log(“function is hooked”);</div><div class="line">&#125; <span class="keyword">else</span> &#123;</div><div class="line">  Log(“function is not hooked”);</div><div class="line">&#125;</div><div class="line"></div></pre></td></tr></table></figure>
+<p>上面的代码，通过判断java函数的属性是否被改为了native来判断函数被hook与否。</p>
+<hr>
+<h4 id="2-更进一步的检测方式"><a href="#2-更进一步的检测方式" class="headerlink" title="2. 更进一步的检测方式"></a>2. 更进一步的检测方式</h4><p>由于客户机的环境各不相同，常常会出现各种各样的异常情况。所以仅仅判断java函数的属性是native属性就认为函数被hook也许过于草率。所以为了进一步验证函数是否被xposed所hook，我们可以在jni层做更多的判断。</p>
+<p>从Xposed的实现过程看，其把原有的method结构体进行了拷贝保存，而把现有的结构体进行了一定的修改。而在jni层我们只要取得保存结构的内存空间，并把其与现有的结构进行对比，如果除去修改过的值之外，其余的值都一样，就可以判断其经过了xposed的处理。代码可以写为</p>
+<figure class="highlight c"><figcaption><span>c code</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">Method *current_method = MethodObject;</div><div class="line"></div><div class="line">If (IsNative(current_method)) &#123;</div><div class="line">  Method *original_method = &amp;current_method-&gt;insns-&gt;method;</div><div class="line"></div><div class="line">  If (original_method-&gt;name == current_method-&gt;name) &#123;</div><div class="line">    If (original_method-&gt;other_parameters == current_method\</div><div class="line">          -&gt;other_parameters) &#123;</div><div class="line">        Log(“<span class="keyword">this</span> method is hooked by xposed”);</div><div class="line">    &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"></div></pre></td></tr></table></figure>
+<hr>
+<h4 id="3-恢复被xposed修改的函数"><a href="#3-恢复被xposed修改的函数" class="headerlink" title="3. 恢复被xposed修改的函数"></a>3. 恢复被xposed修改的函数</h4><p>由于已经确定函数被xposed修改，并且已经找到了保存原有method变量的内存空间，那么如果要恢复xposed的修改，只要把method变量进行还原就可以<br><figure class="highlight c"><figcaption><span>c code</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">Method *current_method = MethodObject;</div><div class="line">original_method = hookInfo-&gt;originalMethodStruct；</div><div class="line"></div><div class="line">MemCopy(current_method, original_method, <span class="keyword">sizeof</span>(method));</div><div class="line"></div></pre></td></tr></table></figure></p>
+<p>由于客户机器情况较为复杂，如果xposed的检测出错，只会发生误报的情况。而如果恢复出错，则会导致程序僵死。</p>
+<p>其中恢复出错的情况，可能有xposed版本升级之后，代码实现发生改变，或者有开发者在xposed的基础上做了自己的修改，甚至还有手机厂商修改了底层变量的定义等情况。</p>
+<p>所以在没有更加复杂细致的验证之前不能将xposed的恢复方法用于产品中。能够想到的方法是，启动一个专门的独立的App进程，进行恢复尝试。</p>
+<p>考虑到开发的高效性以及系统效率和稳定，第一种简易的检测方式已经可以定位到大部分的异常情况，该方法可以在初版本中进行使用来作比较初级的检测。而更复杂的检测机制，则可以更加有针对性的识别主流的xposed框架的hook行为。</p>
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/Android/">Android</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 01 月 18 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+
+</body>
+
+</html>
