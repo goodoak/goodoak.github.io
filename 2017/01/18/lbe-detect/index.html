@@ -75,6 +75,8 @@
 <h3 id="1-LBE实现原理"><a href="#1-LBE实现原理" class="headerlink" title="1. LBE实现原理"></a>1. LBE实现原理</h3><p>(1)Activity的启动：</p>
 <p>LBE的实现理念主要是在自身的App端实现一个代理框架，作为一个中间层负责插件（第三方App）和系统的交互。其首先解决的最重要的问题就是Android App的所有Activity都需要在AndroidManifest.xml中事先进行声明，而LBE是无法知道第三方应用中的具体Activity名称的。为了解决这个问题，LBE使用了类似于”占坑“的概念的方式，就是提前在自身的AndroidManifest.xml中声明一系列不同类型的代理Activity，在第三方应用需要启动Activity时，LBE就作为代理向系统请求启动自身的代理Activity，同时得到系统响应后，LBE却在自身的进程空间内实现启动第三方应用中的Activity，并将其与代理Activity关联从而绕过系统对Activity启动的限制。</p>
 <img src="http://res.cloudinary.com/dcn1avvzr/image/upload/v1484893235/LBE_detect.png" title="流程图">
+<p>通过阅读Android源码可以知道Activity的启动请求主要通过 IActivityManager类型的binder句柄和system_server进行通信来完成。当第三方App调用startActivity时，LBE需要hook这个通信过程将目标target　Activity替换成LBE的代理Activity。<br>这个App端的通信句柄是一个静态变量，其获取的代码为</p>
+<figure class="highlight java"><figcaption><span>android 源码</span></figcaption><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">public</span> IActivityManager <span class="title">getDefault</span><span class="params">()</span> </span>&#123;</div><div class="line">    <span class="keyword">return</span> gDefault.get();</div><div class="line">&#125;</div><div class="line"></div></pre></td></tr></table></figure>
 
  
                 <!-- Meta -->
