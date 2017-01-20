@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+
+<!-- Head tag -->
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--Description-->
+    
+        <meta name="description" content="Enjoy Code Life">
+    
+
+    <!--Author-->
+    
+        <meta name="author" content="GoodOak">
+    
+
+    <!-- Title -->
+    
+    <title>LBE平行空间检测（沙盒环境检测） | Code | Oak&#39;s hexo</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Custom Fonts -->
+    <link href="//cdn.bootcss.com/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='//fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+    <!-- Content -->
+    <section class="article-container">
+<!-- Back Home -->
+<a class="nav-back" href="/">
+    <i class="fa fa-puzzle-piece"></i>
+</a>
+
+<!-- Page Header -->
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>LBE平行空间检测（沙盒环境检测）</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Main Content -->
+            <div class="post-content col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <p>LBE平行空间的功能主要是以插件的形式加载第三方的应用并让其在自己的进程空间内运行。以满足需要在手机上同时运行两个相同App的需求。LBE的这种类似在沙盒环境内运行App的模式，给App的风控系统带来了一定的影响。</p>
+<p>首先风控系统是为了唯一的识别一台设备，在这个过程中就需要获取大量的手机信息以及设备信息。而运行在沙盒环境内，使得系统获取到的参数变得不再可信，甚至无法获取，从而影响了整个设备指纹系统的数据完整性。</p>
+<p>其次风控系统主要是帮助宿主识别设备的异常行为。而相同设备运行多个账号，且沙盒环境的多变性等会产生多种异常的行为，所以识别沙盒环境对风控系统有重要的意义。</p>
+<p>同时LBE的沙箱环境无法完全隔离各个应用的权限，其他应用可以直接执行system(“cp ..”)命令将App目录拷贝走。这也带来了很大的安全问题。</p>
+<h3 id="1-LBE实现原理"><a href="#1-LBE实现原理" class="headerlink" title="1. LBE实现原理"></a>1. LBE实现原理</h3><p>(1)Activity的启动：</p>
+<p>LBE的实现理念主要是在自身的App端实现一个代理框架，作为一个中间层负责插件（第三方App）和系统的交互。其首先解决的最重要的问题就是Android App的所有Activity都需要在AndroidManifest.xml中事先进行声明，而LBE是无法知道第三方应用中的具体Activity名称的。为了解决这个问题，LBE使用了类似于”占坑“的概念的方式，就是提前在自身的AndroidManifest.xml中声明一系列不同类型的代理Activity，在第三方应用需要启动Activity时，LBE就作为代理向系统请求启动自身的代理Activity，同时得到系统响应后，LBE却在自身的进程空间内实现启动第三方应用中的Activity，并将其与代理Activity关联从而绕过系统对Activity启动的限制。</p>
+<img src="http://res.cloudinary.com/dcn1avvzr/image/upload/v1484893235/LBE_detect.png" title="流程图">
+
+ 
+                <!-- Meta -->
+                <div class="post-meta">
+                    <hr>
+                    <br>
+                    <div class="post-tags">
+                        
+                            
+
+<a href="/tags/Android/">Android</a>
+
+
+                        
+                    </div>
+                    <div class="post-date">
+                        2017 年 01 月 18 日
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <!-- Disqus Comments -->
+
+
+            </div>
+        </div>
+    </div>
+</article>
+</section>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+<script src="//cdn.bootcss.com/jquery/2.2.1/jquery.min.js"></script>
+<!-- Bootstrap -->
+<script src="//cdn.bootcss.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+	console.log('Hexo-theme-hollow designed by zchen9 🙋 © 2015-' + (new Date()).getFullYear());
+</script>
+
+    <!-- Google Analytics -->
+    
+
+</body>
+
+</html>
